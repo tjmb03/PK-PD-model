@@ -1,0 +1,108 @@
+---
+title: "Minimal PBPK Modeling in R"
+author: "Generated Example"
+output: html_document
+---
+
+# Introduction
+
+This document demonstrates how to build and simulate a **Physiologically Based Pharmacokinetic (PBPK)** model in R using `rxode2`.  
+The model includes plasma, liver, kidney, and rest-of-body compartments.
+
+rxode2 (or deSolve) to define/solve ODEs
+nlmixr2 if you want to estimate parameters from data
+mrgsolve if you prefer a compiled C++ ODE engine and a NONMEM-like workflow
+Tidyverse for data wrangling/plots
+
+# Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load Packages
+
+```{r}
+library(rxode2)
+library(ggplot2)
+```
+
+# Define PBPK Model
+
+```{r}
+pbpk <- rxode2({
+  Qh   = Q_hep;   
+  Qr   = Q_ren;   
+  Qrest= Q_rest;  
+  Qtot = Qh + Qr + Qrest;
+
+  Vp = V_plasma;
+  Vh = V_hep;
+  Vr = V_ren;
+  Vrest = V_rest;
+
+  Kp_h = Kp_hep;
+  Kp_r = Kp_ren;
+  Kp_rest = Kp_rest;
+
+  fu = fu_plasma;           
+  Clint = Clint_hep;        
+  CLr_lin = CL_ren;         
+
+  CLh = (Qh * fu * Clint) / (Qh + fu * Clint + 1e-12);
+
+  Cplasma = A_plasma / Vp;
+  Ch = A_hep / Vh;
+  Cr = A_ren / Vr;
+  Crest = A_rest / Vrest;
+
+  d/dt(A_plasma) = 
+      - Qh*(Cplasma - Ch/Kp_h)
+      - Qr*(Cplasma - Cr/Kp_r)
+      - Qrest*(Cplasma - Crest/Kp_rest)
+      - CLh * Cplasma
+      - CLr_lin * Cplasma;
+
+  d/dt(A_hep)   =  Qh*(Cplasma - Ch/Kp_h);
+  d/dt(A_ren)   =  Qr*(Cplasma - Cr/Kp_r);
+  d/dt(A_rest)  =  Qrest*(Cplasma - Crest/Kp_rest);
+
+  cp = Cplasma;
+})
+```
+
+# Parameter Values
+
+```{r}
+theta <- c(
+  Q_hep=90, Q_ren=70, Q_rest=240,           
+  V_plasma=3, V_hep=1.8, V_ren=0.5, V_rest=33,  
+  Kp_hep=5, Kp_ren=2, Kp_rest=3,            
+  fu_plasma=0.1,
+  Clint_hep=60,                              
+  CL_ren=5                                   
+)
+
+inits <- c(A_plasma=0, A_hep=0, A_ren=0, A_rest=0)
+```
+
+# Simulation
+
+```{r}
+ev <- eventTable()
+ev$add.dosing(dose=100, nbr.doses=1, start.time=0, cmt=1)   
+ev$add.sampling(seq(0, 48, by=0.25))
+
+out <- rxSolve(pbpk, theta, ev, inits=inits)
+head(out)
+```
+
+# Plot
+
+```{r}
+ggplot(out, aes(x=time, y=cp)) +
+  geom_line(color="blue") +
+  labs(title="Plasma Concentration vs Time (PBPK)", 
+       x="Time (h)", y="Concentration (mg/L)") +
+  theme_minimal()
+```

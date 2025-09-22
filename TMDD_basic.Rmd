@@ -1,0 +1,191 @@
+---
+title: "TMDD"
+author: "Bo Ma"
+date: "2025-09-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduciton
+
+here are two ready-to-use nlmixr2 TMDD templates you can drop into R. The first is a mechanistic QSS TMDD; the second is the classic Michaelis–Menten (MM) approximation that’s numerically lighter and often sufficient for FIH/early phase.
+
+1) TMDD (Quasi-Steady-State) — mechanistic, with internalization
+
+```{r}
+library(nlmixr2)
+library(rxode2)
+
+tmdd_qss <- function() {
+  ini({
+    # PK (central ± linear CL)
+    tCL  <- log(0.5)     ; label("Linear CL (L/h)")
+    tV   <- log(10)      ; label("Central V (L)")
+    tQ   <- log(3)       ; label("Q (L/h)")           # optional if you include a peripheral
+    tVp  <- log(15)      ; label("Vp (L)")
+
+    # Absorption (optional transit or first-order)
+    tKA  <- log(1.0)     ; label("Ka (1/h)")
+
+    # TMDD kinetics
+    tKON  <- log(0.01)   ; label("kon (1/nM/h)")      # scale units to your C units
+    tKOFF <- log(0.1)    ; label("koff (1/h)")
+    tRTOT <- log(50)     ; label("Rtot (nM)")
+    tKINT <- log(0.2)    ; label("kint (1/h)")
+
+    # IIV (log-normal)
+    eta.CL  ~ 0.1
+    eta.V   ~ 0.1
+    eta.KA  ~ 0.2
+    eta.RT  ~ 0.3
+
+    # Residual error (PK concentration)
+    prop.sd <- 0.15
+    add.sd  <- 0.05
+  })
+  model({
+    # Individual parameters
+    CL  <- exp(tCL + eta.CL)
+    V   <- exp(tV  + eta.V)
+    Q   <- exp(tQ)
+    Vp  <- exp(tVp)
+    KA  <- exp(tKA + eta.KA)
+
+    kon  <- exp(tKON)
+    koff <- exp(tKOFF)
+    Rtot <- exp(tRTOT + eta.RT)
+    kint <- exp(tKINT)
+
+    # States
+    # 1: depot, 2: central, 3: peripheral
+    Cc   <- central / V                        # plasma concentration
+
+    # --- QSS algebra for receptor/complex at the effect site (plasma) ---
+    # KD = koff / kon
+    KD   <- koff / kon
+
+    # QSS complex concentration (Ceq) in same units as Cc & Rtot
+    # Ceq = 0.5 * ( (Rtot + C + KD) - sqrt((Rtot + C + KD)^2 - 4*Rtot*C) )
+    term <- (Rtot + Cc + KD)
+    Ceq  <- 0.5 * ( term - sqrt(term*term - 4.0*Rtot*Cc) )
+
+    # TMDD elimination equals internalization of complex
+    # Rate (in conc units) = kint * Ceq
+    # Convert to amount: V * (kint * Ceq)
+    TMDD_elim <- V * kint * Ceq
+
+    # ODEs
+    d/dt(depot)    <- -KA * depot
+    d/dt(central)  <-  KA * depot                           # input
+                      - (CL * Cc)                           # linear CL
+                      - TMDD_elim                           # TMDD (QSS)
+                      - Q * (central/V - peripheral/Vp)     # distribution
+    d/dt(peripheral) <-  Q * (central/V - peripheral/Vp)
+
+    # Observation
+    cp <- Cc
+    cp ~ prop(prop.sd) + add(add.sd)
+  })
+}
+
+```
+
+## Notes
+
+This uses the closed-form QSS complex Ceq. It’s closer to mechanistic TMDD than MM, but still much easier to estimate than the full ODEs for Free Drug/Free Receptor/Complex.
+
+Ensure your units are consistent (nM vs mg/L). Rescale kon, Rtot accordingly.
+
+If you don’t need a peripheral, drop Q/Vp and the third state.
+
+2) TMDD → Michaelis–Menten (MM) approximation — simpler & stable
+
+```{r}
+tmdd_mm <- function() {
+  ini({
+    # PK
+    tCL  <- log(0.5)  ; label("Linear CL (L/h)")
+    tV   <- log(10)   ; label("Central V (L)")
+    tKA  <- log(1.0)  ; label("Ka (1/h)")
+
+    # MM nonlinearity (Vmax, Km) approximate TMDD
+    tVmax <- log(5)   ; label("Vmax (mg/L/h * L)") # amount/h; careful with units
+    tKm   <- log(0.5) ; label("Km (mg/L)")
+
+    # IIV
+    eta.CL  ~ 0.1
+    eta.V   ~ 0.1
+    eta.KA  ~ 0.2
+    eta.Vmax ~ 0.2
+    eta.Km   ~ 0.2
+
+    # Residual error
+    prop.sd <- 0.15
+    add.sd  <- 0.05
+  })
+  model({
+    CL   <- exp(tCL + eta.CL)
+    V    <- exp(tV  + eta.V)
+    KA   <- exp(tKA + eta.KA)
+    Vmax <- exp(tVmax + eta.Vmax)   # amount/time
+    Km   <- exp(tKm   + eta.Km)     # concentration
+
+    Cc <- central / V
+    MM <- Vmax * Cc / (Km + Cc)     # amount/time (nonlinear elimination)
+
+    d/dt(depot)   <- -KA * depot
+    d/dt(central) <-  KA * depot
+                     - CL * Cc
+                     - MM
+
+    cp <- Cc
+    cp ~ prop(prop.sd) + add(add.sd)
+  })
+}
+
+```
+
+##Notes
+
+This captures hallmark TMDD behavior (nonlinear, saturable clearance) with fewer parameters and excellent numerical stability.
+
+Vmax and Km map to combinations of kon, koff,Rtot, and kint under common TMDD approximations.
+
+##Minimal “how to fit” skeleton
+```{r}
+# 1) Build a dosing/observation dataset (example: single oral dose + rich sampling)
+library(dplyr)
+dose <- data.frame(
+  ID=1, time=0, amt=100, cmt=1, evid=1
+)
+obs  <- data.frame(
+  ID=1,
+  time=c(0.5,1,2,4,6,8,12,24,36,48),
+  amt=0, cmt=2, evid=0, dv=NA
+)
+dat  <- bind_rows(dose, obs) %>% arrange(ID, time, desc(evid))
+
+# 2) Fit with SAEM (recommended for nonlinear/MIxed effects)
+fit_mm   <- nlmixr2(tmdd_mm,   dat, est="saem", saemControl(print=0))
+fit_qss  <- nlmixr2(tmdd_qss,  dat, est="saem", saemControl(print=0))
+
+print(fit_mm)
+print(fit_qss)
+```
+
+
+##Tips
+
+Start with the MM model to get stable initial estimates; then try the QSS TMDD if you need mechanistic parameters (e.g., ).
+
+Use SAEM (not FOCEi) for these models. FOCEi often struggles with strong nonlinearity.
+
+Watch identifiability: fix or bound parameters (e.g., set koff from in-vitro KD if available) and check VPC + bootstrap once stable.
+
+
+
+
+

@@ -1,0 +1,196 @@
+---
+title: "PBPK_modelling_minimal"
+author: "Bo Ma"
+date: "2025-09-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+rxode2 (or deSolve) to define/solve ODEs
+nlmixr2 if you want to estimate parameters from data
+mrgsolve if you prefer a compiled C++ ODE engine and a NONMEM-like workflow
+Tidyverse for data wrangling/plots
+
+Below is a practical roadmap + a minimal working example you can copy-paste.
+
+1) Minimal PBPK (perfusion-limited) in rxode2
+
+This “minimal PBPK” has Plasma (venous/arterial lumped as “plasma” for simplicity), Liver (with well-stirred hepatic clearance), Kidney (linear renal clearance), and a Rest compartment. It’s a good starter you can extend.
+
+```{r }
+library(rxode2)
+
+pbpk <- rxode2({
+  // --- Parameters (will be supplied from R) ---
+  // Flows (L/h)
+  Qh   = Q_hep;   // hepatic blood flow
+  Qr   = Q_ren;   // renal blood flow
+  Qrest= Q_rest;  // flow to rest-of-body
+  Qtot = Qh + Qr + Qrest;
+
+  // Volumes (L)
+  Vp = V_plasma;
+  Vh = V_hep;
+  Vr = V_ren;
+  Vrest = V_rest;
+
+  // Partition coefficients
+  Kp_h = Kp_hep;
+  Kp_r = Kp_ren;
+  Kp_rest = Kp_rest;
+
+  // Binding & clearance
+  fu = fu_plasma;           // unbound fraction in plasma
+  Clint = Clint_hep;        // intrinsic hepatic clearance (L/h)
+  CLr_lin = CL_ren;         // linear renal clearance (L/h)
+
+  // Well-stirred hepatic clearance (effective)
+  CLh = (Qh * fu * Clint) / (Qh + fu * Clint + 1e-12);
+
+  // State variables are amounts (A) [mg]
+  // Plasma concentration (arterial approximation here)
+  Cplasma = A_plasma / Vp;
+  Ch = A_hep / Vh;
+  Cr = A_ren / Vr;
+  Crest = A_rest / Vrest;
+
+  // Tissue concentrations vs plasma via perfusion-limited Kp
+  // Back-diffusion term uses C_t/Kp_t
+  // Flows drive exchange between plasma and tissues
+  d/dt(A_plasma) = 
+      - Qh*(Cplasma - Ch/Kp_h)
+      - Qr*(Cplasma - Cr/Kp_r)
+      - Qrest*(Cplasma - Crest/Kp_rest)
+      - CLh * Cplasma
+      - CLr_lin * Cplasma;
+
+  d/dt(A_hep)   =  Qh*(Cplasma - Ch/Kp_h);
+  d/dt(A_ren)   =  Qr*(Cplasma - Cr/Kp_r);
+  d/dt(A_rest)  =  Qrest*(Cplasma - Crest/Kp_rest);
+
+  // Observation
+  cp = Cplasma; // plasma concentration for plotting/fitting
+})
+
+```
+
+## Simulate a single IV bolus
+
+
+```{r }
+# Example physiology for a 70-kg adult (toy values; replace with literature)
+theta <- c(
+  Q_hep=90, Q_ren=70, Q_rest=240,           # L/h (cardiac output ~400 L/h)
+  V_plasma=3, V_hep=1.8, V_ren=0.5, V_rest=33,  # L
+  Kp_hep=5, Kp_ren=2, Kp_rest=3,            # tissue:plasma Kp's
+  fu_plasma=0.1,
+  Clint_hep=60,                              # L/h
+  CL_ren=5                                   # L/h
+)
+
+# Initial amounts
+inits <- c(A_plasma=0, A_hep=0, A_ren=0, A_rest=0)
+
+# Dosing & sampling
+ev <- eventTable()
+ev$add.dosing(dose=100, nbr.doses=1, start.time=0, cmt=1)   # 100 mg IV bolus into plasma
+ev$add.sampling(seq(0, 48, by=0.25))
+
+out <- rxSolve(pbpk, theta, ev, inits=inits)
+plot(out$time, out$cp, type="l", xlab="Time (h)", ylab="Plasma conc (mg/L)")
+
+```
+
+##The same idea in mrgsolve (if you prefer that engine)
+
+```{r }
+library(mrgsolve)
+
+code <- '
+$PARAM Q_hep=90, Q_ren=70, Q_rest=240,
+       V_plasma=3, V_hep=1.8, V_ren=0.5, V_rest=33,
+       Kp_hep=5, Kp_ren=2, Kp_rest=3,
+       fu_plasma=0.1, Clint_hep=60, CL_ren=5
+
+$CMT A_plasma A_hep A_ren A_rest
+
+$MAIN
+double Qh = Q_hep, Qr = Q_ren, Qrest = Q_rest;
+double Vp = V_plasma, Vh = V_hep, Vr = V_ren, Vrest = V_rest;
+double Kph = Kp_hep, Kpr = Kp_ren, Kpres = Kp_rest;
+double fu = fu_plasma, Clint = Clint_hep, CLr = CL_ren;
+
+double Cplasma = A_plasma/Vp;
+double Ch = A_hep/Vh;
+double Cr = A_ren/Vr;
+double Crest = A_rest/Vrest;
+
+double CLh = (Qh*fu*Clint)/(Qh + fu*Clint + 1e-12);
+
+$ODE
+dxdt_A_plasma = 
+  - Qh*(Cplasma - Ch/Kph)
+  - Qr*(Cplasma - Cr/Kpr)
+  - Qrest*(Cplasma - Crest/Kpres)
+  - CLh*Cplasma
+  - CLr*Cplasma;
+
+dxdt_A_hep  =  Qh*(Cplasma - Ch/Kph);
+dxdt_A_ren  =  Qr*(Cplasma - Cr/Kpr);
+dxdt_A_rest =  Qrest*(Cplasma - Crest/Kpres);
+
+$TABLE
+double cp = A_plasma/Vp;
+
+$CAPTURE cp
+'
+
+mod <- mcode("pbpk_min", code)
+dose <- ev(amt=100, cmt=1)  # 100 mg IV bolus into plasma
+out  <- mod %>% ev(dose) %>% mrgsim(end=48, delta=0.25)
+plot(out, cp ~ time)
+```
+
+##Adding oral dosing & gut
+
+Add stomach → intestine transit, FaFg or permeability, and portal vein to liver.
+Put first-pass extraction into the liver via the same well-stirred expression (use gut/plasma unbound fractions consistently).
+
+##Estimation (optional)
+
+If you have observed plasma concentrations (and maybe tissue microdialysis), you can estimate PBPK parameters:
+
+```{r }
+library(nlmixr2)
+# Wrap the rxode2 model in an nlmixr2 function with ini{ } and model{ }
+# add residual error model, then:
+fit <- nlmixr2(pbpk_model, data=pkdf, est="saem", saemControl(print=0))
+```
+
+##Tips for estimation
+
+Fix physiological parameters to literature values; estimate drug-specific ones (Kp’s, Clint, fu) or use informative priors.
+
+Start simple (minimal PBPK) and add tissues as data support.
+
+Use SAEM for robustness; FOCEi often struggles with stiff PBPK ODEs.
+
+##Practical pointers
+
+Partition coefficients (Kp): start with literature/prediction methods (Poulin-Theil, Rodgers-Rowland) and refine.
+
+Units: be meticulous (L vs mL, mg/L vs µM, flows per hour vs per minute).
+
+Mass balance: check that inputs = outputs over time.
+
+Sensitivity: perform local/global sensitivity (e.g., vary Kp, fu, Clint) to see leverage.
+
+Scaling: include weight/height/age to scale volumes/flows (allometry or published physiology tables).
+
+Validation: simulate known scenarios (IV vs PO, multiple doses) before fitting.
+
