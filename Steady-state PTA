@@ -1,0 +1,136 @@
+# =========================
+# Steady-state PTA for IVT protein (days)
+# 1-compartment ocular PK: vitreous concentration
+# =========================
+
+set.seed(123)
+
+# ---------- User inputs ----------
+N      <- 20000            # number of virtual patients
+Cstar  <- 5                # target concentration C* (e.g., ug/mL)
+frac_target <- 0.80        # require >=80% of interval above C*
+units_note <- "All times in days; C in ug/mL; D in ug; V in mL"
+
+# Dose grid (mg) and intervals (weeks -> days)
+dose_mg <- c(0.5, 1, 2, 4)
+tau_wk  <- c(4, 6, 8, 12)
+tau_day <- tau_wk * 7
+
+# Convert mg to ug (1 mg = 1000 ug)
+dose_ug <- dose_mg * 1000
+
+# Typical ocular PK (example values; replace with your estimates)
+CL_typ <- 0.05   # mL/day
+V_typ  <- 4.0    # mL
+
+# Between-subject variability (lognormal CV)
+cv_CL <- 0.40    # 40% CV on CL
+cv_V  <- 0.25    # 25% CV on V
+
+# ADA scenario (optional)
+ADA_on      <- TRUE
+ADA_frac    <- 0.20   # 20% ADA+
+ADA_CL_mult <- 3.0    # ADA+ increases CL by 3x (example)
+# -------------------------------
+
+# Helper: convert CV to lognormal SD (omega)
+cv_to_omega <- function(cv) sqrt(log(1 + cv^2))
+
+omega_CL <- cv_to_omega(cv_CL)
+omega_V  <- cv_to_omega(cv_V)
+
+# Sample individual CL and V (lognormal with mean approx CL_typ, V_typ)
+# Note: For lognormal, set mu so that E[X] = typ
+r_lognorm_mean <- function(n, mean, omega) {
+  mu <- log(mean) - 0.5 * omega^2
+  rlnorm(n, meanlog = mu, sdlog = omega)
+}
+
+CL_i <- r_lognorm_mean(N, CL_typ, omega_CL)
+V_i  <- r_lognorm_mean(N, V_typ,  omega_V)
+
+# Apply ADA scenario: subset gets higher CL
+ADA_flag <- rep(FALSE, N)
+if (ADA_on) {
+  ADA_flag <- runif(N) < ADA_frac
+  CL_i[ADA_flag] <- CL_i[ADA_flag] * ADA_CL_mult
+}
+
+# Core PK quantities
+k_i <- CL_i / V_i                 # 1/day
+
+# Steady-state trough after repeated bolus dosing:
+# Cmin_ss = (D/V) * exp(-k*tau) / (1 - exp(-k*tau))
+Cmin_ss <- function(D_ug, V, k, tau) {
+  e <- exp(-k * tau)
+  (D_ug / V) * (e / (1 - e))
+}
+
+# Steady-state peak (immediately post-dose):
+# Cmax_ss = (D/V) * 1/(1 - exp(-k*tau))
+Cmax_ss <- function(D_ug, V, k, tau) {
+  e <- exp(-k * tau)
+  (D_ug / V) * (1 / (1 - e))
+}
+
+# Time above threshold within an interval at steady state:
+# At steady state, concentration right after dose is Cmax_ss, then decays exponentially.
+# Time above C* = clamp( (1/k)*ln(Cmax_ss/C*), 0, tau )
+TimeAbove_ss <- function(Cmax, k, Cstar, tau) {
+  # If Cmax <= C*, never above
+  tstar <- (1 / k) * log(Cmax / Cstar)
+  tstar[!is.finite(tstar)] <- 0
+  pmin(tau, pmax(0, tstar))
+}
+
+# ---------- Run PTA over regimen grid ----------
+results <- list()
+
+for (D in dose_ug) {
+  for (tau in tau_day) {
+
+    cmin <- Cmin_ss(D, V_i, k_i, tau)
+    cmax <- Cmax_ss(D, V_i, k_i, tau)
+    tabv <- TimeAbove_ss(cmax, k_i, Cstar, tau)
+    frac_abv <- tabv / tau
+
+    PTA_Cmin <- mean(cmin >= Cstar)
+    PTA_Frac <- mean(frac_abv >= frac_target)
+
+    results[[length(results) + 1]] <- data.frame(
+      Dose_mg = D / 1000,
+      Interval_wk = tau / 7,
+      Interval_day = tau,
+      PTA_Cmin = PTA_Cmin,
+      PTA_FracAbove = PTA_Frac,
+      ADA_on = ADA_on,
+      ADA_frac = ifelse(ADA_on, ADA_frac, 0),
+      ADA_CL_mult = ifelse(ADA_on, ADA_CL_mult, 1),
+      stringsAsFactors = FALSE
+    )
+  }
+}
+
+out <- do.call(rbind, results)
+
+# Sort for readability
+out <- out[order(out$Dose_mg, out$Interval_day), ]
+
+print(units_note)
+print(out)
+
+# Optional: show separate PTA for ADA- and ADA+ groups (diagnostic)
+if (ADA_on) {
+  cat("\n--- Stratified PTA (ADA- vs ADA+) for one example regimen (2 mg q8w) ---\n")
+  D_ex <- 2 * 1000
+  tau_ex <- 8 * 7
+
+  cmin_ex <- Cmin_ss(D_ex, V_i, k_i, tau_ex)
+  cmax_ex <- Cmax_ss(D_ex, V_i, k_i, tau_ex)
+  frac_ex <- TimeAbove_ss(cmax_ex, k_i, Cstar, tau_ex) / tau_ex
+
+  cat("PTA_Cmin ADA-:", mean(cmin_ex[!ADA_flag] >= Cstar), "\n")
+  cat("PTA_Cmin ADA+:", mean(cmin_ex[ ADA_flag] >= Cstar), "\n")
+  cat("PTA_Frac  ADA-:", mean(frac_ex[!ADA_flag] >= frac_target), "\n")
+  cat("PTA_Frac  ADA+:", mean(frac_ex[ ADA_flag] >= frac_target), "\n")
+}
