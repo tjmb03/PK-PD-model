@@ -1,6 +1,5 @@
 ---
 title: "Minimal PBPK Modeling in R"
-author: "Generated Example"
 output: html_document
 ---
 
