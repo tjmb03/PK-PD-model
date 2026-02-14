@@ -1,4 +1,4 @@
-A collection of pharmacokinetic–pharmacodynamic (PK–PD) modeling examples in R, including:
+## A collection of pharmacokinetic–pharmacodynamic (PK–PD) modeling examples in R, including:
 
 Population PK simulation
 
