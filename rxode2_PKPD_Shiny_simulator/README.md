@@ -35,7 +35,5 @@ preview.png)
 
 ## 💻 Run Locally
 
-```r
-install.packages(c("shiny","rxode2","ggplot2","dplyr","tidyr"))
-shiny::runApp("popsim_app")
+⭐ It is intended as a portfolio demonstration of pharmacometric workflow design, not a source-code distribution repository. Full source code available upon request.
 
