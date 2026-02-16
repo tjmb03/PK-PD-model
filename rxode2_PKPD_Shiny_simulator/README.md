@@ -22,7 +22,7 @@ Interactive PK/PD simulation tool built with **rxode2 + Shiny**.
 
 ## 🚀 Live Demo
 
-👉 **[Launch App](https://tjmb03.shinyapps.io/popsim_app/)**
+👉 **[Launch App](https://tjmb03.shinyapps.io/popsim/)**
 
 ---
 
