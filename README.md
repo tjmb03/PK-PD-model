@@ -17,7 +17,6 @@ modeling workflows built in R for translational decision-making.
 
 PopPKPD_workflow_shiny/ → Interactive PopPK workflow\
 rxode2_PKPD_Shiny_simulator/ → PK/PD simulation app\
-TMDD/ → Target-mediated drug disposition models
 
 A simple indirect response PK:PD model.R\
 basic example-nlmixr2.R\
