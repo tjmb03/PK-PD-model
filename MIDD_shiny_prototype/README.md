@@ -3,7 +3,7 @@
 A Model-Informed Drug Development (MIDD) prototype for PopPK/PD simulation, safety evaluation, pharmacovigilance signal updating, and clinical trial power estimation.
 
 🔗 **Launch the Application**
-👉 [Click here to open the live app]([https://your-app-link-here](https://tjmb03.shinyapps.io/MIDDengine/))
+👉 [Click here to open the live app](https://tjmb03.shinyapps.io/MIDDengine/)
 
 ---
 
