@@ -13,7 +13,7 @@
 
 **A production-grade R Shiny application for end-to-end drug development decision support**
 
-[![Launch App](https://img.shields.io/badge/▶%20Launch%20App-4A90D9?style=for-the-badge&logoColor=white)](https://your-shinyapps-link-here)
+[![Launch App](https://img.shields.io/badge/▶%20Launch%20App-4A90D9?style=for-the-badge&logoColor=white)](https://tjmb03.shinyapps.io/MIDDadvanced/)
 &nbsp;
 [![R](https://img.shields.io/badge/R-%3E%3D4.2-276DC3?style=flat-square&logo=r)](https://www.r-project.org/)
 &nbsp;
