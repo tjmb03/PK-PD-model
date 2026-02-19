@@ -20,8 +20,7 @@
 [![Shiny](https://img.shields.io/badge/Shiny-1.7+-blue?style=flat-square)](https://shiny.posit.co/)
 &nbsp;
 [![rxode2](https://img.shields.io/badge/rxode2-ODE%20engine-orange?style=flat-square)](https://nlmixr2.github.io/rxode2/)
-&nbsp;
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+
 
 </div>
 
