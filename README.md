@@ -1,54 +1,70 @@
-# PK-PD Modeling Toolkit (R)
+# PK/PD Modeling & Simulation
 
-A focused portfolio of pharmacokinetic--pharmacodynamic (PK--PD)
-modeling workflows built in R for translational decision-making.
+A collection of pharmacokinetic/pharmacodynamic (PK/PD) modeling tools, interactive Shiny applications, and example scripts for Model-Informed Drug Development (MIDD).
 
-## Capabilities
-
--   Population PK simulation with IIV
--   Indirect response (Imax / turnover) models
--   TMDD modeling
--   PBPK examples
--   Steady-state exposure metrics (Cmin, Cmax, AUC)
--   Probability of Target Attainment (PTA)
--   Interactive Shiny simulators
+---
 
 ## Repository Structure
 
-PopPKPD_workflow_shiny/ → Interactive PopPK workflow\
-rxode2_PKPD_Shiny_simulator/ → PK/PD simulation app\
+```
+├── MIDD_advanced_shiny/          # Advanced MIDD interactive Shiny app
+├── PopPKPD_workflow_shiny/       # Population PK/PD workflow Shiny app
+├── rxode2_PKPDsimulator_shiny/   # RxODE2-based PK/PD simulator Shiny app
+├── .github/workflows/            # CI/CD workflows
+│
+├── A simple indirect response PK:PD model.R
+├── Convert RxODE2 QD:BID PK:PD simulation.R
+├── PBPK_modeling_example.Rmd
+├── TMDD_basic.Rmd
+├── Steady-state PTA
+└── basic example-nlmixr2.R
+```
 
-A simple indirect response PK:PD model.R\
-basic example-nlmixr2.R\
-PBPK_modeling_example.Rmd\
-TMDD_basic.Rmd\
-Steady-state PTA
+---
 
-## Example Workflow
+## Components
 
-Dose\
-↓\
-Population PK\
-↓\
-Exposure Metric\
-↓\
-Biomarker Model\
-↓\
-Probability of Effect\
-↓\
-PTA / Dose Decision
+### 🖥️ Shiny Applications
 
-## Core Packages
+| App | Description |
+|-----|-------------|
+| [MIDD_advanced_shiny](MIDD_advanced_shiny/) | Advanced model-informed drug development workflows |
+| [PopPKPD_workflow_shiny](PopPKPD_workflow_shiny/) | Interactive population PK/PD analysis and simulation |
+| [rxode2_PKPDsimulator_shiny](rxode2_PKPDsimulator_shiny/) | ODE-based PK/PD simulation using RxODE2 |
 
-rxode2 · nlmixr2 · dplyr · tibble · purrr · ggplot2 · shiny
+---
 
-## Modeling Philosophy
+### 📄 Scripts & Notebooks
 
--   Mechanistic clarity\
--   Transparent assumptions\
--   Reproducible simulation\
--   Decision-oriented outputs\
--   No black-box modeling
+| File | Description |
+|------|-------------|
+| `A simple indirect response PK:PD model.R` | Indirect response model implementation in R |
+| `Convert RxODE2 QD:BID PK:PD simulation.R` | Convert between once- and twice-daily dosing simulations |
+| `PBPK_modeling_example.Rmd` | Physiologically-based PK (PBPK) modeling walkthrough |
+| `TMDD_basic.Rmd` | Target-mediated drug disposition (TMDD) model example |
+| `Steady-state PTA` | Probability of target attainment (PTA) at steady state |
+| `basic example-nlmixr2.R` | Population PK fitting with nlmixr2 |
+
+---
+
+## Getting Started
+
+See folders for scripts and usage details.
+
+---
+
+## Key Modelling Frameworks
+
+| Framework | Purpose |
+|-----------|---------|
+| **RxODE2** | ODE-based PK/PD simulation in R |
+| **nlmixr2** | Nonlinear mixed-effects population PK/PD fitting |
+| **PBPK** | Physiologically-based pharmacokinetic modelling |
+| **TMDD** | Target-mediated drug disposition modelling |
+| **Indirect response** | PD models for delayed drug effects |
+| **PTA** | Probability of target attainment for dose optimisation |
+
+---
 
 ------------------------------------------------------------------------
 
