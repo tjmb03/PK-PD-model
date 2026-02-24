@@ -177,7 +177,6 @@ Winner parameters: **KTR = 3.80 1/h** (BSV 50%, shrinkage 45%), **CL = 0.133 L/h
 
 - Schoemaker R. *rxode2 and nlmixr2 — PopSim Course Copenhagen 2024*
 - Fidler M et al. (2019). Nonlinear mixed-effects model development and simulation using nlmixr and related R open-source packages. *CPT Pharmacometrics Syst Pharmacol* 8(9):621–633.
-- Wang W et al. (2007). Estimation of the time-varying clearance and volume of distribution using a transit compartment model. *J Pharmacokinet Pharmacodyn* 34(5):679–700.
 - Keizer RJ et al. (2013). Modeling and Simulation Workbench for NONMEM: Tutorial on Pirana, PsN, and Xpose. *CPT Pharmacometrics Syst Pharmacol* 2:e50.
 
 ---
