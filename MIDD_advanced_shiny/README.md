@@ -380,6 +380,7 @@ PopPK estimation  →  CL = 8.4 L/h, V = 42 L, omega_CL = 0.31 ...
 ---
 
 *Built on the rxode2 ODE simulation engine. Designed for model-informed drug development across the full clinical pharmacology workflow.*
+> © 2026 tjmb03. Source code for the interactive dashboards is **available on request** for academic and research use.
 
 
 
