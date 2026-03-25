@@ -70,3 +70,4 @@ See folders for scripts and usage details.
 
 Designed for translational scientists, pharmacometricians, and biomarker
 strategists.
+> © 2026 tjmb03. Source code for the interactive dashboards is **available on request** for academic and research use.
