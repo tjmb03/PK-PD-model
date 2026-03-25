@@ -183,5 +183,5 @@ Winner parameters: **KTR = 3.80 1/h** (BSV 50%, shrinkage 45%), **CL = 0.133 L/h
 
 
 *Built with the nlmixr2 + rxode2 open-source pharmacometrics ecosystem.*
-
+> © 2026 tjmb03. Source code for the interactive dashboards is **available on request** for academic and research use.
 ------------------------------------------------------------------------
